@@ -5,7 +5,7 @@
   If you are checking out from git and need to create a new one, you can use `dotnet new silksongpath` to generate one.
   -->
     <ItemGroup>
-        <Content Include="$(MSBuildProjectDirectory)\..\Clips\**\*">
+        <Content Include="$(MSBuildProjectDirectory)\..\Included Clips\**\*">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
             <Link>Clips\%(RecursiveDir)%(Filename)%(Extension)</Link>
         </Content>
@@ -41,20 +41,21 @@
     <Target Name="CopyMod" AfterTargets="PostBuildEvent" Condition="'$(SilksongFolder)' != ''">
         <ItemGroup>
             <Binaries Include="$(TargetPath)"/>
-            <ExtraFiles Include="$(TargetDir)Clips/**/*"/>
+            <Clips Include="$(TargetDir)Clips/**/*"/>
         </ItemGroup>
         
-        <Copy SourceFiles="@(Binaries)" DestinationFolder="$(SilksongFolder)/BepInEx/plugins/$(TargetName)" />
-        <Copy SourceFiles="@(ExtraFiles)" DestinationFiles="@(ExtraFiles->'$(SilksongFolder)/BepInEx/plugins/$(TargetName)/Clips/%(RecursiveDir)%(Filename)%(Extension)')" />
+        <Copy SourceFiles="@(Binaries)" DestinationFolder="$(SilksongFolder)/BepInEx/plugins/$(TargetName)"/>
+        <Copy SourceFiles="@(Clips)" DestinationFiles="@(Clips->'$(SilksongFolder)/BepInEx/plugins/$(TargetName)/Clips/%(RecursiveDir)%(Filename)%(Extension)')"/>
         
         <PropertyGroup>
-            <ExportFolder>bin/Publish</ExportFolder>
+            <ExportFolder>../Release</ExportFolder>
         </PropertyGroup>
         
         <RemoveDir Directories="$(IntermediateOutputPath)/archive"/>
         <MakeDir Directories="$(ExportFolder)"/>
         <Copy SourceFiles="@(Binaries)" DestinationFolder="$(IntermediateOutputPath)/archive"/>
-        <Copy SourceFiles="@(ExtraFiles)" DestinationFiles="@(ExtraFiles->'$(IntermediateOutputPath)/archive/Clips/%(RecursiveDir)%(Filename)%(Extension)')" />
+        <Copy SourceFiles="@(Clips)" DestinationFiles="@(Clips->'$(IntermediateOutputPath)/archive/Clips/%(RecursiveDir)%(Filename)%(Extension)')"/>
+        <Copy SourceFiles="@(Binaries)" DestinationFolder="$(ExportFolder)"/>
         <ZipDirectory SourceDirectory="$(IntermediateOutputPath)/archive" DestinationFile="$(ExportFolder)/$(TargetName).zip" Overwrite="True"/>
     </Target>
 </Project>

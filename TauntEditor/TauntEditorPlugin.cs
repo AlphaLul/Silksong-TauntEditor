@@ -21,6 +21,12 @@ public partial class TauntEditorPlugin : BaseUnityPlugin
     public static TauntEditorPlugin Instance { get; private set; }
     private Harmony harmony = new(ID);
 
+    private string clipsPath;
+    private string archivedClipsPath;
+    private ConfigEntry<string> clipsFolderName;
+    private ConfigEntry<string> archivedClipsSubfolderName;
+    private ConfigEntry<bool> disableMod;
+
     private const string targetBundleName = "147a11169aba20e0cec9ba43c2035542";
     private const string tauntVoiceTablePath = "Assets/Audio/Voices/Hornet_Silksong/Taunt Hornet Voice.asset";
     private const string tauntSeriouslyVoiceTablePath = "Assets/Audio/Voices/Hornet_Silksong/Taunt Seriously Hornet Voice.asset";
@@ -37,7 +43,23 @@ public partial class TauntEditorPlugin : BaseUnityPlugin
     private void Awake()
     {
         if (Instance == null) Instance = this;
-        
+
+        clipsFolderName = Config.Bind(
+            "Folders",
+            "ClipsFolderName",
+            "Clips",
+            "Name of folder that will be searched for clips");
+        archivedClipsSubfolderName = Config.Bind(
+            "Folders",
+            "ArchivedClipsSubfolderName",
+            "Archive",
+            "Name of folder that you wish to exclude from the clips search. Allows you to remove clips without deleting them");
+        disableMod = Config.Bind(
+            "Toggles",
+            "DisableMod",
+            false,
+            "Whether or not to disable the mod's functionality. " + 
+            "True allows you to return to vanilla functionality without moving or deleting clips");
         configRefreshOnSaveQuit = Config.Bind(
             "Toggles",
             "RefreshOnSaveQuit",
@@ -48,13 +70,25 @@ public partial class TauntEditorPlugin : BaseUnityPlugin
             "Toggles",
             "IncludeVanillaClips",
             false,
-            "Whether or not to include Hornet's vanilla taunt clips");
-        
+            "Whether or not to include Silksong's vanilla taunt clips");
+
+        clipsPath = Path.Combine(Path.GetDirectoryName(Info.Location), clipsFolderName.Value);
+        archivedClipsPath = Path.Combine(clipsPath, archivedClipsSubfolderName.Value);
+
+        Directory.CreateDirectory(clipsPath);
+        Directory.CreateDirectory(archivedClipsPath);
+
+        if (disableMod.Value)
+        {
+            Logger.LogWarning("TauntEditor mod disabled");
+            return;
+        }
         harmony.PatchAll();
     }
 
     public void ExecuteTauntEditor()
     {
+        if (disableMod.Value) return;
         StartCoroutine(ExecuteTauntEditorRoutine());
     }
 
@@ -69,13 +103,13 @@ public partial class TauntEditorPlugin : BaseUnityPlugin
         {
             tauntVoiceTable.clips = vanillaClips;
             tauntSeriouslyVoiceTable.clips = vanillaClips;
-            Logger.LogInfo($"TauntEditor plugin applied vanilla clips to taunt voice tables");
+            Logger.LogInfo($"TauntEditor mod applied vanilla clips to taunt voice tables");
             yield break;
         }
         
         tauntVoiceTable.clips = moddedClips.ToArray();
         tauntSeriouslyVoiceTable.clips = moddedClips.ToArray();
-        Logger.LogInfo($"TauntEditor plugin applied {tauntVoiceTable.clips.Length} clips to taunt voice tables");
+        Logger.LogInfo($"TauntEditor mod applied {tauntVoiceTable.clips.Length} clips to taunt voice tables");
     }
     
     private void CacheTauntVoiceTable()
@@ -101,16 +135,17 @@ public partial class TauntEditorPlugin : BaseUnityPlugin
     private IEnumerator LoadClipsRoutine()
     {
         List<AudioClip> streamedClips = new();
-        string clipsPath = Path.Combine(Path.GetDirectoryName(Info.Location), "Clips");
         string[] wavFiles = Directory.GetFiles(clipsPath, "*.wav", SearchOption.AllDirectories);
         if (wavFiles.Length == 0)
         {
-            Logger.LogError("No wav files found in TauntEditor clips folder");
+            Logger.LogWarning("No wav files found in TauntEditor clips folder");
             yield break;
         }
 
         foreach (string wavFile in wavFiles)
         {
+            if (Path.GetDirectoryName(wavFile).Equals(archivedClipsPath, StringComparison.OrdinalIgnoreCase)) continue;
+            
             string uri = new Uri(wavFile).AbsoluteUri;
             using UnityWebRequest req = UnityWebRequestMultimedia.GetAudioClip(uri, AudioType.WAV);
             yield return req.SendWebRequest();
@@ -138,7 +173,7 @@ public partial class TauntEditorPlugin : BaseUnityPlugin
             Logger.LogInfo($"Loaded {clip.name}.wav");
         }
         
-        Logger.LogInfo($"TauntEditor plugin loaded {moddedClips.Count} clips");
+        Logger.LogInfo($"TauntEditor mod loaded {moddedClips.Count} clips");
     }
 }
 
